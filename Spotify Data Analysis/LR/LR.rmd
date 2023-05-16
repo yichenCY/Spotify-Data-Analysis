@@ -1,0 +1,75 @@
+
+```{r load-libraries, echo=TRUE, message=FALSE, warning=FALSE, include=FALSE}
+# r set up
+library(dplyr)
+library(knitr)
+library(ggplot2)
+library(reshape2)
+library(tidyr)
+library(corrplot)
+library(lmtest)
+library(sandwich)
+library(ivreg)
+```
+
+
+```{r lr-data-input, echo=TRUE}
+LR_raw = read.csv(file = 'LR_data1.csv', header= TRUE)
+```
+
+```{r}
+test_data = LR_data %>% select(`popularity`, `danceability`,`energy`,`speechiness`,
+                               `acousticness`,`instrumentalness`,`liveness`,
+                               `valence`)
+
+lm_test = lm(popularity~`speechiness`+`energy`+`acousticness`+`valence`+`instrumentalness`+`liveness`+`danceability`,data=test_data)
+
+# residual plot and qq plot
+plot(lm_test, which = c(1,2), caption = list("Resid vs. Fitted", "Normal Q-Q"))
+
+## Analysis of Variance in Linear Regression (ANOVA)
+# generate ANOVA table after fitting 
+anova_wh = aov(lm_test)
+print(summary(anova_wh))
+summary(lm_test)
+```
+
+```{r}
+# use base R's `cor()` function to produce the matrix
+LR_Xs.corrmat = cor(test_data)
+
+# visualize correlation matrix with "corrplot" package
+corrplot(LR_Xs.corrmat, type = "full", order = "hclust", method = "shade",
+         tl.col = "black", tl.srt = 60)
+
+```
+
+```{r}
+lm_test_backward = lm(popularity~`danceability`+`energy`+`speechiness`+`acousticness`+`instrumentalness`+`liveness`+`valence`,data=test_data)
+
+step(lm_test_backward, direction ='backward')
+
+```
+
+```{r}
+test_backward_result = lm(popularity~danceability+speechiness+acousticness+instrumentalness+valence, data=test_data)
+
+summary(test_backward_result)
+anova_wh = aov(test_backward_result)
+print(summary(anova_wh))
+```
+
+```{r}
+# re-check & fix Heteroskedasticity
+
+# Breusch-Pagen test
+bptest(test_backward_result) 
+
+# call for "sandwich" white-huber robust SE
+coeftest(test_backward_result, vcov = sandwich)
+
+anova_wh = aov(test_backward_result)
+print(summary(anova_wh))
+summary(test_backward_result)
+```
+
